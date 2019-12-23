@@ -7,6 +7,24 @@ enum Content {
   Tag(Element),
 }
 
+impl From<String> for Content {
+  fn from(item: String) -> Self {
+    Content::Text(item)
+  }
+}
+
+impl From<&str> for Content {
+  fn from(item: &str) -> Self {
+    Content::Text(String::from(item))
+  }
+}
+
+impl From<Element> for Content {
+  fn from(item: Element) -> Self {
+    Content::Tag(item)
+  }
+}
+
 enum Tag {
   Html,
   Head,
@@ -73,14 +91,12 @@ impl Tag {
     }
   }
 
-  fn render_opening_tag(&self, indent: usize, attributes: &Option<HashMap<String, String>>, buffer: &mut String) {
+  fn render_opening_tag(&self, indent: usize, attributes: &HashMap<String, String>, buffer: &mut String) {
     buffer.push_str(&format!("{:indent$}<{}", "", self.tag(), indent=indent));
 
-    if let Some(attributes) = attributes {
-      if attributes.len() > 0 {
-        for (k, v) in attributes.into_iter() {
-          buffer.push_str(&format!(" {}=\"{}\"", k, v));
-        }
+    if attributes.len() > 0 {
+      for (k, v) in attributes.into_iter() {
+        buffer.push_str(&format!(" {}=\"{}\"", k, v));
       }
     }
 
@@ -123,21 +139,19 @@ impl Tag {
     }
   }
 
-  fn render_self_closing_tag(&self, indent: usize, attributes: &Option<HashMap<String, String>>, buffer: &mut String) {
+  fn render_self_closing_tag(&self, indent: usize, attributes: &HashMap<String, String>, buffer: &mut String) {
     buffer.push_str(&format!("{:indent$}<{}", "", self.tag(), indent=indent));
 
-    if let Some(attributes) = attributes {
-      if attributes.len() > 0 {
-        for (k, v) in attributes.into_iter() {
-          buffer.push_str(&format!(" {}=\"{}\"", k, v));
-        }
+    if attributes.len() > 0 {
+      for (k, v) in attributes.into_iter() {
+        buffer.push_str(&format!(" {}=\"{}\"", k, v));
       }
     }
 
     buffer.push_str(" />\n");
   }
 
-  fn render(&self, indent: usize, attributes: &Option<HashMap<String, String>>, content: &Vec<Content>) -> String {
+  fn render(&self, indent: usize, attributes: &HashMap<String, String>, content: &Vec<Content>) -> String {
     let mut out: String = String::new();
 
     if self.is_self_closing() {
@@ -156,12 +170,20 @@ impl Tag {
 
 struct Element {
   tag: Tag,
-  attributes: Option<HashMap<String, String>>,
+  attributes: HashMap<String, String>,
   content: Vec<Content>,
 }
 
 impl Element {
-  fn new(tag: Tag, attributes: Option<HashMap<String, String>>) -> Self {
+  fn new(tag: Tag) -> Self {
+    return Element {
+      tag: tag,
+      attributes: HashMap::new(),
+      content: Vec::new(),
+    }
+  }
+
+  fn new_with_attributes(tag: Tag, attributes: HashMap<String, String>) -> Self {
     return Element {
       tag: tag,
       attributes: attributes,
@@ -169,23 +191,23 @@ impl Element {
     }
   }
 
-  fn new_with_text(tag: Tag, attributes: Option<HashMap<String, String>>, text: &str) -> Self {
-    let mut e = Self::new(tag, attributes);
-    e.append(Content::Text(String::from(text)));
+  fn new_with_text(tag: Tag, text: &str) -> Self {
+    let mut e = Self::new(tag);
+    e.append(text.into());
 
     e
   }
 
-  fn create_p(attributes: Option<HashMap<String, String>>, text: &str) -> Self {
-    Self::new_with_text(Tag::P, attributes, text)
+  fn create_p(text: &str) -> Self {
+    Self::new_with_text(Tag::P, text)
   }
 
   fn create_link(href: String, text: String) -> Element {
     let mut attributes: HashMap<String, String> = HashMap::new();
     attributes.insert(String::from("href"), href);
 
-    let mut a = Element::new(Tag::A, Some(attributes));
-    a.append(Content::Text(text));
+    let mut a = Element::new_with_attributes(Tag::A, attributes);
+    a.append(text.into());
 
     a
   }
@@ -194,20 +216,18 @@ impl Element {
     let mut attributes: HashMap<String, String> = HashMap::new();
     attributes.insert(String::from("charset"), String::from(charset));
 
-    Element::new(Tag::Meta, Some(attributes))
+    Element::new_with_attributes(Tag::Meta, attributes)
   }
 
   fn create_title(title: &str) -> Self {
-    Self::new_with_text(Tag::Title, None, title)
+    Self::new_with_text(Tag::Title, title)
   }
 
   fn create_list(elements: Vec<&str>) -> Element {
-    let mut ul = Element::new(Tag::Ul, None);
+    let mut ul = Element::new(Tag::Ul);
 
     for e in elements.into_iter() {
-      let mut li = Element::new(Tag::Li, None);
-      li.append(Content::Text(String::from(e)));
-      ul.append(Content::Tag(li));
+      ul.append(Element::new_with_text(Tag::Li, e).into());
     }
 
     ul
@@ -215,12 +235,12 @@ impl Element {
 
   fn create_header(text: &str, level: usize) -> Element {
     match level {
-      1 => Self::new_with_text(Tag::H1, None, text),
-      2 => Self::new_with_text(Tag::H2, None, text),
-      3 => Self::new_with_text(Tag::H3, None, text),
-      4 => Self::new_with_text(Tag::H4, None, text),
-      5 => Self::new_with_text(Tag::H5, None, text),
-      _ => Self::new_with_text(Tag::H6, None, text),
+      1 => Self::new_with_text(Tag::H1, text),
+      2 => Self::new_with_text(Tag::H2, text),
+      3 => Self::new_with_text(Tag::H3, text),
+      4 => Self::new_with_text(Tag::H4, text),
+      5 => Self::new_with_text(Tag::H5, text),
+      _ => Self::new_with_text(Tag::H6, text),
     }
   }
 
@@ -234,42 +254,41 @@ impl Element {
 }
 
 fn main() {
-  let mut html = Element::new(Tag::Html, None);
-  html.append(Content::Text(String::from("Before head")));
+  let mut html = Element::new(Tag::Html);
+  html.append("Before head".into());
 
-  let mut head = Element::new(Tag::Head, None);
-  head.append(Content::Tag(Element::create_charset("UTF-8")));
-  head.append(Content::Tag(Element::create_title("This is my title")));
+  let mut head = Element::new(Tag::Head);
+  head.append(Element::create_charset("UTF-8").into());
+  head.append(Element::create_title("This is my title").into());
+  html.append(head.into());
 
-  html.append(Content::Tag(head));
+  html.append("After head".into());
 
-  html.append(Content::Text(String::from("After head")));
+  let mut body = Element::new(Tag::Body);
 
-  let mut body = Element::new(Tag::Body, None);
+  body.append(Element::create_header("My Test Application", 1).into());
 
-  body.append(Content::Tag(Element::create_header("My Test Application", 1)));
+  let mut p1 = Element::create_p("Paragraph one");
 
-  let mut p1 = Element::create_p(None, "Paragraph one");
+  let p2 = Element::create_p("Nested paragraph");
+  p1.append(p2.into());
+  body.append(p1.into());
 
-  let p2 = Element::create_p(None, "Nested paragraph");
-  p1.append(Content::Tag(p2));
-  body.append(Content::Tag(p1));
+  let hr = Element::new(Tag::Hr);
+  body.append(hr.into());
 
-  let hr = Element::new(Tag::Hr, None);
-  body.append(Content::Tag(hr));
+  let mut p3 = Element::new(Tag::P);
+  p3.append("separate paragraph".into());
+  p3.append(Element::create_link(String::from("http://google.com"), String::from("google")).into());
+  body.append(p3.into());
 
-  let mut p3 = Element::new(Tag::P, None);
-  p3.append(Content::Text(String::from("Separate paragraph")));
-  p3.append(Content::Tag(Element::create_link(String::from("http://google.com"), String::from("google"))));
-  body.append(Content::Tag(p3));
+  let mut p4 = Element::new(Tag::P);
+  p4.append("List:".into());
+  html.append(p4.into());
 
-  let mut p4 = Element::new(Tag::P, None);
-  p4.append(Content::Text(String::from("List:")));
-  html.append(Content::Tag(p4));
+  html.append(Element::create_list(vec!["element1", "element2", "element3"]).into());
 
-  html.append(Content::Tag(Element::create_list(vec!["element1", "element2", "element3"])));
-
-  html.append(Content::Tag(body));
+  html.append(body.into());
 
   println!("<!DOCTYPE html>");
   println!("{}", html.render(0));
