@@ -293,3 +293,72 @@ fn main() {
   println!("<!DOCTYPE html>");
   println!("{}", html.render(0));
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_init() {
+    Element::new(Tag::Html);
+  }
+
+  #[test]
+  fn test_append() {
+    let mut e = Element::new_with_text(Tag::Html, "This is some text".into());
+    e.append("this is some more text".into());
+  }
+
+  #[test]
+  fn test_render_element() {
+    let mut e = Element::new_with_text(Tag::Html, "This is some text".into());
+    e.append("this is some more text".into());
+
+    assert_eq!(e.render(0), "<html>\n  This is some text\n  this is some more text\n</html>\n");
+  }
+
+  #[test]
+  fn test_body() {
+    let mut e = Element::new(Tag::Body);
+    e.append("This is a test".into());
+
+    assert_eq!(e.render(0), "<body>\n  This is a test\n</body>\n");
+  }
+
+  #[test]
+  fn test_sub_element() {
+    let mut e = Element::new(Tag::Html);
+    e.append(Element::create_p("Paragraph!").into());
+
+    assert_eq!(e.render(0), "<html>\n  <p>\n    Paragraph!\n  </p>\n</html>\n");
+  }
+
+  #[test]
+  fn test_one_line_tag() {
+    let e = Element::create_link("https://google.com".into(), "Google!".into());
+
+    assert_eq!(e.render(0), "<a href=\"https://google.com\">Google!</a>\n");
+  }
+
+  #[test]
+  fn test_self_closing_tag() {
+    let mut e = Element::new(Tag::Html);
+    e.append(Element::new(Tag::Hr).into());
+
+    assert_eq!(e.render(0), "<html>\n  <hr />\n</html>\n");
+  }
+
+  #[test]
+  fn test_attributes() {
+    let mut e = Element::new(Tag::Html);
+
+    let mut attributes: HashMap<String, String> = HashMap::new();
+    attributes.insert("abc".into(), "123".into());
+
+    let mut title = Element::new_with_attributes(Tag::Title, attributes);
+    title.append("My Title".into());
+    e.append(title.into());
+
+    assert_eq!(e.render(0), "<html>\n  <title abc=\"123\">My Title</title>\n</html>\n");
+  }
+}
